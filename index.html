@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>醫療文件入口網 (Serverless - Configured)</title>
+    <title>醫療文件入口網 (安全版)</title>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
         :root { --primary: #2563eb; --bg: #f8fafc; --text: #334155; }
@@ -13,8 +13,7 @@
         .nav button { border: none; padding: 10px 25px; border-radius: 25px; cursor: pointer; font-weight: 600; transition: 0.2s; font-size: 1rem; }
         .nav button.active { background: var(--primary); color: white; }
         .nav button.inactive { background: transparent; color: #64748b; }
-        .nav button.inactive:hover { background: #f1f5f9; }
-
+        
         .card { display: none; width: 100%; max-width: 600px; background: white; padding: 2rem; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
         .card.show { display: block; animation: slideUp 0.3s ease-out; }
         
@@ -27,7 +26,7 @@
         .btn-main:hover { background: #1d4ed8; }
         .btn-main:disabled { background: #94a3b8; cursor: not-allowed; }
 
-        .doc-item { border: 1px solid #e2e8f0; padding: 1rem; border-radius: 10px; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; background: #fff; transition: 0.2s; }
+        .doc-item { border: 1px solid #e2e8f0; padding: 1rem; border-radius: 10px; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; background: #fff; }
         .doc-info h4 { margin: 0 0 5px 0; font-size: 1.1rem; }
         .doc-info p { margin: 0; font-size: 0.9rem; color: #64748b; }
 
@@ -36,19 +35,31 @@
         .btn-preview { background: #eff6ff; color: var(--primary); }
         .btn-download { background: #f0fdf4; color: #166534; }
 
+        /* Token 輸入區塊特別樣式 */
+        .token-box { background: #fff7ed; border: 1px solid #fdba74; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .token-box label { color: #c2410c; }
+        .token-box input { border-color: #fdba74; }
+
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
-        .modal-content { width: 90%; height: 90%; background: white; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+        .modal-content { width: 90%; height: 90%; background: white; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
         .modal-header { padding: 15px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
         .close-btn { font-size: 24px; cursor: pointer; border: none; background: none; color: #64748b; }
         iframe { flex: 1; border: none; width: 100%; background: #f1f5f9; }
-
-        /* 警告區塊 */
-        .warning-box { background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem; border: 1px solid #ffeeba; }
 
         @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
+
+    <div style="width: 100%; max-width: 600px;">
+        <div class="token-box">
+            <label>🔑 請輸入您的 GitHub Token</label>
+            <input type="password" id="apiToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+            <small style="color:#9a3412; display:block; margin-top:5px;">
+                注意：此 Token 僅用於本次瀏覽器連線，不會被儲存。請放心填入。
+            </small>
+        </div>
+    </div>
 
     <div class="nav">
         <button id="tabDoctor" class="active" onclick="switchRole('doctor')">👨‍⚕️ 醫師端</button>
@@ -58,10 +69,6 @@
     <div id="viewDoctor" class="card show">
         <h2>📤 上傳檢查報告</h2>
         
-        <div class="warning-box">
-            ⚠️ <b>安全警告：</b> 此為純前端 Demo，Token 已寫死在程式碼中。請勿在正式環境使用。
-        </div>
-
         <div style="background:#eff6ff; padding:12px; border-radius:8px; margin-bottom:20px; color:#1e40af; font-size:0.9rem;">
             當前醫師: <b>MIT1</b> (ID: 5)
         </div>
@@ -103,28 +110,28 @@
     </div>
 
     <script>
-        // ==========================================
-        // 1. 設定區 (已填入您的設定)
-        // ==========================================
+        // 設定區 (注意：這裡不再包含 Token)
         const CONFIG = {
-            // 您的 FHIR Server IP
-            FHIR_BASE_URL: 'https://hapi.fhir.org/baseR4',
-            
-            // 您的 GitHub 設定
+            FHIR_BASE_URL: 'http://203.64.84.177:8080/fhir',
             GITHUB_USER: 'chiphat102',
             GITHUB_REPO: 'DocumentReference-test',
-            GITHUB_TOKEN: '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', // ⚠️ 注意：Token 暴露風險
             GITHUB_API_VER: '2022-11-28'
         };
 
-        const CURRENT_DOCTOR = { id: "2118638", name: "Bishop" };
+        const CURRENT_DOCTOR = { id: "5", name: "MIT1" };
 
-        // ==========================================
-        // 2. 工具函式
-        // ==========================================
-        
+        // 取得使用者輸入的 Token
+        function getUserToken() {
+            const token = document.getElementById('apiToken').value.trim();
+            if (!token) {
+                alert("⚠️ 請先在上方橘色框框輸入您的 GitHub Token！");
+                return null;
+            }
+            return token;
+        }
+
         function uuidv4() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
                 var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
                 return v.toString(16);
             });
@@ -142,10 +149,7 @@
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
-                reader.onload = () => {
-                    const base64String = reader.result.split(',')[1];
-                    resolve(base64String);
-                };
+                reader.onload = () => resolve(reader.result.split(',')[1]);
                 reader.onerror = error => reject(error);
             });
         }
@@ -160,16 +164,15 @@
             } else {
                 document.getElementById('tabPatient').className = 'active';
                 document.getElementById('viewPatient').classList.add('show');
-                fetchDocuments(); 
+                // 切換到病人不自動查詢，避免沒 Token 報錯
             }
         }
 
-        // ==========================================
-        // 3. 核心邏輯
-        // ==========================================
-
         // [上傳] 主流程
         async function handleUpload() {
+            const token = getUserToken(); // 取得 Token
+            if (!token) return;
+
             const fileInput = document.getElementById('fileInput');
             const patientId = document.getElementById('uploadPatientId').value;
             const btn = document.getElementById('btnUpload');
@@ -183,21 +186,19 @@
 
             try {
                 const file = fileInput.files[0];
-                
-                // 1. 轉 Base64
                 const contentBase64 = await fileToBase64(file);
                 const storagePath = generateStoragePath(file.name);
 
-                // 2. 上傳到 GitHub
                 status.innerHTML = "上傳至 GitHub...";
                 const githubUrl = `https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}/contents/${storagePath}`;
                 
+                // 使用使用者輸入的 Token
                 const ghResponse = await axios.put(githubUrl, {
                     message: `Medical Upload: ${storagePath}`,
                     content: contentBase64
                 }, {
                     headers: {
-                        'Authorization': `Bearer ${CONFIG.GITHUB_TOKEN}`,
+                        'Authorization': `Bearer ${token}`, // 這裡變了
                         'Accept': 'application/vnd.github+json',
                         'X-GitHub-Api-Version': CONFIG.GITHUB_API_VER
                     }
@@ -205,7 +206,6 @@
                 
                 const storageUrl = ghResponse.data.content.url; 
 
-                // 3. 寫入 FHIR
                 status.innerHTML = "寫入 FHIR Server...";
                 
                 const fhirResource = {
@@ -222,7 +222,7 @@
                     content: [{
                         attachment: {
                             contentType: file.type,
-                            url: storageUrl, // 存入 GitHub API URL
+                            url: storageUrl,
                             size: file.size,
                             title: file.name,
                             creation: new Date().toISOString()
@@ -241,6 +241,9 @@
 
             } catch (err) {
                 console.error(err);
+                if(err.response && err.response.status === 401) {
+                    alert("Token 無效！請檢查是否輸入正確或已過期");
+                }
                 status.innerHTML = `<span style="color:red">❌ 失敗: ${err.message}</span>`;
             } finally {
                 btn.disabled = false;
@@ -250,12 +253,14 @@
 
         // [查詢] 主流程
         async function fetchDocuments() {
+            // 注意：查詢文件列表本身不需要 GitHub Token (因為是查 FHIR)
+            // 但為了下載預覽，我們還是會需要它。
+            
             const patientId = document.getElementById('myPatientId').value;
             const listDiv = document.getElementById('docList');
             listDiv.innerHTML = '<p style="text-align:center;">載入中...</p>';
 
             try {
-                // 查詢 FHIR
                 const url = `${CONFIG.FHIR_BASE_URL}/DocumentReference?subject=Patient/${patientId}&_sort=-date`;
                 const response = await axios.get(url);
                 const bundle = response.data;
@@ -295,17 +300,19 @@
 
             } catch (err) {
                 console.error(err);
-                listDiv.innerHTML = '<p style="text-align:center; color:red;">伺服器連線錯誤 (請檢查 FHIR Server CORS 設定)</p>';
+                listDiv.innerHTML = '<p style="text-align:center; color:red;">FHIR Server 連線錯誤</p>';
             }
         }
 
-        // [下載/預覽] 處理邏輯
+        // [下載/預覽]
         async function handleFileAction(apiUrl, contentType, action) {
+            const token = getUserToken(); // 需要 Token 才能下載
+            if (!token) return;
+
             try {
-                // 從 GitHub 下載二進制資料
                 const response = await axios.get(apiUrl, {
                     headers: {
-                        'Authorization': `Bearer ${CONFIG.GITHUB_TOKEN}`,
+                        'Authorization': `Bearer ${token}`, // 使用輸入的 Token
                         'Accept': 'application/vnd.github.v3.raw'
                     },
                     responseType: 'blob'
@@ -330,7 +337,7 @@
 
             } catch (err) {
                 console.error(err);
-                alert("無法讀取檔案，可能是 Token 過期或權限不足");
+                alert("無法讀取檔案，請確認 Token 正確且擁有 Repo 權限");
             }
         }
 
@@ -347,6 +354,3 @@
     </script>
 </body>
 </html>
-
-
-
